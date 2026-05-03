@@ -1,4 +1,4 @@
-package com.sparshsethi.bananatrade.order.dto;
+package com.sparshsethi.bananatrade.order.model;
 
 import com.sparshsethi.bananatrade.order.constants.OrderType;
 import lombok.AllArgsConstructor;
@@ -8,10 +8,11 @@ import lombok.Setter;
 @Getter
 @Setter
 @AllArgsConstructor
-public class CreateOrderRequest {
+public class Order {
 
-    private OrderType orderType;
+    private String orderId;
     private String instrument;
+    private OrderType orderType;
     private int quantity;
-
+    //    private int price;
 }
