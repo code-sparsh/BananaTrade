@@ -8,6 +8,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.concurrent.CountDownLatch;
 
@@ -20,8 +22,6 @@ public class UpstoxWebsocketClient implements MarketDataProvider {
     String UPSTOX_API_KEY;
 
     private final OkHttpClient client = new OkHttpClient();
-
-    private volatile boolean isConnected = false;
 
     @Async
     public void start() {
@@ -59,7 +59,6 @@ public class UpstoxWebsocketClient implements MarketDataProvider {
         WebSocket ws = client.newWebSocket(request, new WebSocketListener() {
             @Override
             public void onClosed(@NotNull WebSocket webSocket, int code, @NotNull String reason) {
-                isConnected = false;
                 latch.countDown();
                 super.onClosed(webSocket, code, reason);
             }
@@ -77,7 +76,6 @@ public class UpstoxWebsocketClient implements MarketDataProvider {
 
             @Override
             public void onOpen(@NotNull WebSocket webSocket, @NotNull Response response) {
-                isConnected = true;
                 System.out.println("Connected!");
 
                 String sub = """
@@ -125,9 +123,21 @@ public class UpstoxWebsocketClient implements MarketDataProvider {
                 .retrieve()
                 .body(String.class);
 
-        System.out.println("Authorization Success! Websocket URL received");
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode rootNode = mapper.readTree(response);
 
-        return response;
+        String status = rootNode.get("status").asString();
+
+        // handle failure
+        if(!status.equals("success")) {
+            return "";
+        }
+
+        JsonNode data = rootNode.get("data");
+        String wsUrl = data.get("authorizedRedirectUri").asString();
+
+        System.out.println("Authorization Success! Websocket URL received: " + wsUrl);
+        return wsUrl;
     }
 
 }
