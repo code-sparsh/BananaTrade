@@ -1,5 +1,7 @@
 package com.sparshsethi.bananatrade.marketdata.service;
 
+import com.google.protobuf.InvalidProtocolBufferException;
+import com.upstox.marketdatafeeder.rpc.proto.UpstoxMarketDataFeed;
 import okhttp3.*;
 import okio.ByteString;
 import org.jetbrains.annotations.NotNull;
@@ -65,12 +67,19 @@ public class UpstoxWebsocketClient implements MarketDataProvider {
 
             @Override
             public void onMessage(@NotNull WebSocket webSocket, @NotNull String text) {
+                System.out.println("Received Text : " + text);
                 super.onMessage(webSocket, text);
             }
 
             @Override
             public void onMessage(@NotNull WebSocket webSocket, @NotNull ByteString bytes) {
-                System.out.println("Receieved : " + bytes);
+
+                try {
+                    UpstoxMarketDataFeed.FeedResponse response = UpstoxMarketDataFeed.FeedResponse.parseFrom(bytes.toByteArray());
+                    System.out.println("Received : " + response);
+                } catch (InvalidProtocolBufferException e) {
+                    throw new RuntimeException(e);
+                }
                 super.onMessage(webSocket, bytes);
             }
 
