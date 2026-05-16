@@ -11,18 +11,26 @@ import java.util.concurrent.ConcurrentHashMap;
 @Getter
 public class SubscriptionManager {
 
+
     // instrument -> users
     private final Map<String, Set<String>> instrumentSubscribers = new ConcurrentHashMap<>();
 
     // user -> instruments
     private final Map<String, Set<String>> userSubscriptions = new ConcurrentHashMap<>();
 
-    public void subscribe(Set<String> instruments, String userId) {
+    // returns set of instruments that are new
+    public Set<String> subscribe(Set<String> instruments, String userId) {
+
+        Set<String> newInstruments = ConcurrentHashMap.newKeySet();
+
         for(String instrument : instruments) {
 
             Set<String> subscribers = instrumentSubscribers.computeIfAbsent(
                     instrument,
-                    k -> ConcurrentHashMap.newKeySet()
+                    k -> {
+                        newInstruments.add(instrument);
+                        return ConcurrentHashMap.newKeySet();
+                    }
             );
             subscribers.add(userId);
 
@@ -32,11 +40,16 @@ public class SubscriptionManager {
             );
             subscribedInstruments.add(instrument);
         }
+        return newInstruments;
+
     }
 
-    public void unsubscribe(Set<String> instruments, String userId) {
-        for(String instrument : instruments) {
+    // returns set of inactive instruments
+    public Set<String> unsubscribe(Set<String> instruments, String userId) {
 
+        Set<String> inactiveInstruments = ConcurrentHashMap.newKeySet();
+
+        for(String instrument : instruments) {
 
             instrumentSubscribers.computeIfPresent(
                     instrument,
@@ -44,9 +57,11 @@ public class SubscriptionManager {
                         subscribers.remove(userId);
 
                         // remove map entry if empty
-                        return subscribers.isEmpty()
-                                ? null
-                                : subscribers;
+                        if(subscribers.isEmpty()) {
+                            inactiveInstruments.add(instrument);
+                            return null;
+                        }
+                        return subscribers;
                     }
             );
 
@@ -62,6 +77,8 @@ public class SubscriptionManager {
                     }
             );
         }
+
+        return inactiveInstruments;
     }
 
 }

@@ -141,6 +141,7 @@ public class UpstoxWebsocketClient implements MarketDataProvider {
         return wsUrl;
     }
 
+    @Override
     public void subscribeInstruments(Set<String> instruments)  {
 
         if(webSocket == null) {
