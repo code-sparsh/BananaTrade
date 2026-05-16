@@ -13,12 +13,17 @@ import org.springframework.web.client.RestClient;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 
 import static java.lang.Thread.sleep;
 
 @Service
 public class UpstoxWebsocketClient implements MarketDataProvider {
+
+    private volatile WebSocket webSocket;
 
     @Value("${UPSTOX_API_KEY}")
     String UPSTOX_API_KEY;
@@ -58,7 +63,7 @@ public class UpstoxWebsocketClient implements MarketDataProvider {
 
         System.out.println("Attempting to create connection");
 
-        WebSocket ws = client.newWebSocket(request, new WebSocketListener() {
+        webSocket = client.newWebSocket(request, new WebSocketListener() {
             @Override
             public void onClosed(@NotNull WebSocket webSocket, int code, @NotNull String reason) {
                 latch.countDown();
@@ -86,20 +91,7 @@ public class UpstoxWebsocketClient implements MarketDataProvider {
             @Override
             public void onOpen(@NotNull WebSocket webSocket, @NotNull Response response) {
                 System.out.println("Connected!");
-
-                String sub = """
-                    {
-                      "guid": "1",
-                      "method": "sub",
-                      "data": {
-                        "mode": "ltpc",
-                        "instrumentKeys": ["NSE_EQ|RELIANCE"]
-                      }
-                    }
-                """;
-
-                webSocket.send(ByteString.encodeUtf8(sub));
-
+                subscribeInstruments(Set.of("NSE_EQ|RELIANCE"));
             }
 
             @Override
@@ -147,6 +139,28 @@ public class UpstoxWebsocketClient implements MarketDataProvider {
 
         System.out.println("Authorization Success! Websocket URL received: " + wsUrl);
         return wsUrl;
+    }
+
+    public void subscribeInstruments(Set<String> instruments)  {
+
+        if(webSocket == null) {
+            System.out.println("Websocket not connected");
+            return;
+        }
+
+        Map<String, Object> payload = Map.of(
+                "guid", UUID.randomUUID().toString(),
+                "method", "sub",
+                "data", Map.of(
+                        "mode", "ltpc",
+                        "instrumentKeys", instruments
+                )
+        );
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        String jsonPayload = objectMapper.writeValueAsString(payload);
+
+        webSocket.send(jsonPayload);
     }
 
 }
