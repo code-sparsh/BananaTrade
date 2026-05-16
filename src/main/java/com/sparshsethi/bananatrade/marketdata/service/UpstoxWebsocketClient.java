@@ -164,4 +164,27 @@ public class UpstoxWebsocketClient implements MarketDataProvider {
         webSocket.send(jsonPayload);
     }
 
+    @Override
+    public void unsubscribeInstruments(Set<String> instruments)  {
+
+        if(webSocket == null) {
+            System.out.println("Websocket not connected");
+            return;
+        }
+
+        Map<String, Object> payload = Map.of(
+                "guid", UUID.randomUUID().toString(),
+                "method", "unsub",
+                "data", Map.of(
+                        "mode", "ltpc",
+                        "instrumentKeys", instruments
+                )
+        );
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        String jsonPayload = objectMapper.writeValueAsString(payload);
+
+        webSocket.send(jsonPayload);
+    }
+
 }
