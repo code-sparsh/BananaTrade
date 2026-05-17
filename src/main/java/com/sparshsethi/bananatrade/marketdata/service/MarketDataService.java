@@ -7,8 +7,13 @@ import java.util.Set;
 @Service
 public class MarketDataService {
 
-    private final MarketDataProvider marketDataProvider = new UpstoxWebsocketClient();
-    private final SubscriptionManager subscriptionManager = new SubscriptionManager();
+    private final MarketDataProvider marketDataProvider;
+    private final SubscriptionManager subscriptionManager;
+
+    public MarketDataService(MarketDataProvider marketDataProvider, SubscriptionManager subscriptionManager) {
+        this.marketDataProvider = marketDataProvider;
+        this.subscriptionManager = subscriptionManager;
+    }
 
     public void subscribe(Set<String> instruments, String userId) {
 

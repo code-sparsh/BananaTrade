@@ -1,7 +1,8 @@
 package com.sparshsethi.bananatrade.marketdata.service;
 
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.upstox.marketdatafeeder.rpc.proto.UpstoxMarketDataFeed;
+import com.google.protobuf.util.JsonFormat;
+import com.upstox.marketdatafeederv3udapi.rpc.proto.UpstoxMarketDataFeed;
 import okhttp3.*;
 import okio.ByteString;
 import org.jetbrains.annotations.NotNull;
@@ -81,7 +82,18 @@ public class UpstoxWebsocketClient implements MarketDataProvider {
 
                 try {
                     UpstoxMarketDataFeed.FeedResponse response = UpstoxMarketDataFeed.FeedResponse.parseFrom(bytes.toByteArray());
-                    System.out.println("Received : " + response);
+
+                    switch(response.getType()) {
+                        case market_info:
+                            handleMarketInfo(response);
+                            break;
+                        case live_feed:
+//                            handleLiveFeed(response);
+                            break;
+                        case initial_feed:
+//                            handleInitialFeed(response);
+                    }
+
                 } catch (InvalidProtocolBufferException e) {
                     throw new RuntimeException(e);
                 }
@@ -110,6 +122,20 @@ public class UpstoxWebsocketClient implements MarketDataProvider {
                 System.out.println("Closing: " + code + " / " + reason);
             }
         });
+    }
+
+    private void handleMarketInfo(UpstoxMarketDataFeed.FeedResponse response) {
+
+        try { String json = JsonFormat.printer()
+                .includingDefaultValueFields()
+                .print(response.getMarketInfo());
+
+            System.out.println("(Received) Market Info: " + json);
+        }
+        catch(InvalidProtocolBufferException e) {
+            System.out.println(e);
+        }
+
     }
 
     private String getAuthorizedWsUrl() {
