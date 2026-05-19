@@ -2,6 +2,7 @@ package com.sparshsethi.bananatrade.marketdata.service;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
+import com.sparshsethi.bananatrade.marketdata.dto.Tick;
 import com.upstox.marketdatafeederv3udapi.rpc.proto.UpstoxMarketDataFeed;
 import okhttp3.*;
 import okio.ByteString;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 import java.util.Map;
 import java.util.Set;
@@ -23,6 +25,12 @@ import static java.lang.Thread.sleep;
 
 @Service
 public class UpstoxWebsocketClient implements MarketDataProvider {
+
+    private final TickListener tickListener;
+
+    public UpstoxWebsocketClient(TickListener tickListener) {
+        this.tickListener = tickListener;
+    }
 
     private volatile WebSocket webSocket;
 
@@ -88,11 +96,12 @@ public class UpstoxWebsocketClient implements MarketDataProvider {
                             handleMarketInfo(response);
                             break;
                         case live_feed:
-//                            handleLiveFeed(response);
+                            handleLiveFeed(response);
                             break;
                         case initial_feed:
-//                            handleInitialFeed(response);
+                            handleInitialFeed(response);
                     }
+
 
                 } catch (InvalidProtocolBufferException e) {
                     throw new RuntimeException(e);
@@ -103,7 +112,31 @@ public class UpstoxWebsocketClient implements MarketDataProvider {
             @Override
             public void onOpen(@NotNull WebSocket webSocket, @NotNull Response response) {
                 System.out.println("Connected!");
-                subscribeInstruments(Set.of("NSE_EQ|RELIANCE"));
+//                String sub = """
+//                    {
+//                      "guid": "1",
+//                      "method": "sub",
+//                      "data": {
+//                        "mode": "ltpc",
+//                        "instrumentKeys": ["NSE_INDEX|Nifty 50"]
+//                      }
+//                    }
+//                """;
+
+                String sub = """
+                    {
+                      "guid": "1",
+                      "method": "sub",
+                      "data": {
+                        "mode": "ltpc",
+                        "instrumentKeys": ["GLOBAL_INDEX|^GSPC"]
+                      }
+                    }
+                """;
+
+                webSocket.send(ByteString.encodeUtf8(sub));
+
+                subscribeInstruments(Set.of("NSE_INDEX|Nifty 50"));
             }
 
             @Override
@@ -137,6 +170,76 @@ public class UpstoxWebsocketClient implements MarketDataProvider {
         }
 
     }
+
+    private void handleLiveFeed(UpstoxMarketDataFeed.FeedResponse response) {
+
+        handleFeed(response);
+
+//        try {
+//
+//            Map<String, UpstoxMarketDataFeed.Feed> feedsMap =
+//                    response.getFeedsMap();
+//
+//            ObjectMapper mapper = new ObjectMapper();
+//
+//            for(Map.Entry<String, UpstoxMarketDataFeed.Feed> entry : feedsMap.entrySet()) {
+//
+//                String instrument = entry.getKey();
+//                UpstoxMarketDataFeed.Feed feed = entry.getValue();
+//
+//                String feedJson = JsonFormat.printer()
+//                        .includingDefaultValueFields()
+//                        .print(feed);
+//
+//                JsonNode feedNode = mapper.readTree(feedJson);
+//
+//                ObjectNode finalNode = mapper.createObjectNode();
+//
+//                finalNode.put("instrument", instrument);
+//                finalNode.set("feed", feedNode);
+//
+//                System.out.println(finalNode.toPrettyString());
+//            }
+//
+//        } catch(Exception e) {
+//            e.printStackTrace();
+//        }
+    }
+
+    private void handleInitialFeed(UpstoxMarketDataFeed.FeedResponse response) {
+        handleFeed(response);
+    }
+
+    private void handleFeed(UpstoxMarketDataFeed.FeedResponse response) {
+
+        String feedType = String.valueOf(response.getType());
+
+        Map<String, UpstoxMarketDataFeed.Feed> feedsMap = response.getFeedsMap();
+
+        for(Map.Entry<String, UpstoxMarketDataFeed.Feed> entry : feedsMap.entrySet()) {
+            String instrumentKey = entry.getKey();
+            UpstoxMarketDataFeed.Feed feed = entry.getValue();
+
+            if(!feed.hasLtpc()) {
+                continue;
+            }
+
+            UpstoxMarketDataFeed.LTPC ltpc = feed.getLtpc();
+
+            Tick tick = new Tick(
+                    instrumentKey,
+                    ltpc.getLtp(),
+                    ltpc.getLtt(),
+                    ltpc.getLtq(),
+                    ltpc.getCp(),
+                    feedType
+
+            );
+
+            tickListener.onTick(tick);
+        }
+    }
+
 
     private String getAuthorizedWsUrl() {
 

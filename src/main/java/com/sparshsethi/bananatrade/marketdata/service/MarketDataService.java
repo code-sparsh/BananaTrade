@@ -1,11 +1,12 @@
 package com.sparshsethi.bananatrade.marketdata.service;
 
+import com.sparshsethi.bananatrade.marketdata.dto.Tick;
 import org.springframework.stereotype.Service;
 
 import java.util.Set;
 
 @Service
-public class MarketDataService {
+public class MarketDataService{
 
     private final MarketDataProvider marketDataProvider;
     private final SubscriptionManager subscriptionManager;
